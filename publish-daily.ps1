@@ -1,5 +1,5 @@
 $env:PATH = "C:\Program Files\GitHub CLI;C:\Program Files\Git\cmd;" + $env:PATH
-Copy-Item d:\iflow\黄金市场综合分析.html d:\iflow\gold-market-publish\index.html -Force
+node d:\iflow\gold-market-publish\copy-index.js
 node d:\iflow\gold-market-publish\inline-chart.js
 Set-Location d:\iflow\gold-market-publish
 git add .
