@@ -263,6 +263,7 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
   <span class="sep">|</span>
   <a href="#sec-kpi">市场全景</a>
   <a href="#sec-brief">每日解读</a>
+  <a href="#sec-3y">3年波动</a>
   <a href="#sec-products">实时金价</a>
   <a href="#sec-corr">滚动相关性</a>
   <a href="#sec-risk">风险收益</a>
@@ -336,6 +337,50 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
     .brief-note { font-size:11px; color:#566; margin-top:10px }
   </style>
   <div id="briefContainer"><div class="card" style="text-align:center;color:#666;font-size:13px;padding:24px">正在加载每日解读...</div></div>
+</div>
+
+<!-- ====== 3-Year Daily High/Low Volatility ====== -->
+<div class="section" id="sec-3y">
+  <div class="section-title"><span class="num">3Y</span> 近3年每日波动（最高/最低）</div>
+  <div class="section-desc">类股票日线视图：每根竖条为当日最低价→最高价的波动区间（红=当日收涨、绿=收跌），金色折线为收盘价；悬停可查看当日开盘/最高/最低/收盘与振幅。数据来源：金投网现货黄金日线。</div>
+  <style>
+    .ty-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px }
+    .ty-toolbar .ty-label { font-size:12px; color:#8890a8; margin-right:2px }
+    .ty-btn { background:rgba(246,211,101,0.08); color:#c8b06a; border:1px solid rgba(246,211,101,0.25); border-radius:8px; padding:5px 14px; cursor:pointer; font-size:12px; transition:all .2s }
+    .ty-btn:hover { background:rgba(246,211,101,0.18) }
+    .ty-btn.active { background:linear-gradient(135deg,#f6d365,#fda085); color:#1a1a2e; font-weight:700; border-color:transparent }
+    .ty-toolbar .ty-sep { width:1px; height:18px; background:rgba(255,255,255,0.1); margin:0 6px }
+    .ty-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:16px }
+    .ty-stat { background:rgba(30,42,69,0.5); border:1px solid rgba(246,211,101,0.08); border-radius:10px; padding:10px 14px }
+    .ty-stat .k { font-size:11px; color:#8890a8; margin-bottom:4px }
+    .ty-stat .v { font-size:17px; font-weight:800; color:#f6d365; font-variant-numeric:tabular-nums }
+    .ty-stat .s { font-size:10px; color:#666; margin-top:2px }
+    .ty-stat .v.up { color:#ff6b6b } .ty-stat .v.down { color:#4ecdc4 }
+  </style>
+  <div class="card">
+    <div class="ty-toolbar">
+      <span class="ty-label">计价：</span>
+      <button class="ty-btn active" id="tyBtnUsd">美元/盎司</button>
+      <button class="ty-btn" id="tyBtnRmb">人民币 元/克</button>
+      <span class="ty-sep"></span>
+      <span class="ty-label">区间：</span>
+      <button class="ty-btn" data-win="1" id="tyWin1">近1年</button>
+      <button class="ty-btn" data-win="2" id="tyWin2">近2年</button>
+      <button class="ty-btn active" data-win="3" id="tyWin3">近3年</button>
+    </div>
+    <div class="chart-wrap tall"><canvas id="threeYearChart"></canvas></div>
+    <div class="ty-stats" id="tyStats"></div>
+  </div>
+  <div class="grid-2" style="margin-top:16px">
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">单日振幅 TOP 10（当前区间）</div>
+      <div style="overflow-x:auto"><table class="data-table" id="tyAmpTable"><thead><tr><th>日期</th><th>最高</th><th>最低</th><th>收盘</th><th>振幅</th><th>涨跌</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">单日涨跌 TOP 10（当前区间）</div>
+      <div style="overflow-x:auto"><table class="data-table" id="tyChgTable"><thead><tr><th>日期</th><th>最高</th><th>最低</th><th>收盘</th><th>涨跌</th><th>振幅</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
 </div>
 
 <!-- ====== Real-time Gold Products Panel ====== -->
@@ -737,6 +782,118 @@ safeRun('每日解读', function buildBrief(){
   box.innerHTML = html;
   const t = $('#briefUpdateTime');
   if (t && latest.updated) t.textContent = '更新于 ' + latest.updated;
+});
+
+// ============================================================
+// 3-Year Daily High/Low Volatility
+// ============================================================
+safeRun('3年波动', function build3y(){
+  const T = GOLD.threeYear;
+  if (!T || !T.labels || !T.labels.length) return;
+  let cur = 'usd', win = 3, chart = null;
+  const sym = () => cur === 'usd' ? '$' : '¥';
+
+  function sliceStart(){
+    if (win >= 3) return 0;
+    const cutoff = new Date(Date.now() - win * 366 * 864e5).toISOString().slice(0, 10);
+    const idx = T.labels.findIndex(d => d >= cutoff);
+    return idx < 0 ? 0 : idx;
+  }
+
+  function render(){
+    const s = sliceStart();
+    const labels = T.labels.slice(s);
+    const D = T[cur];
+    const open = D.open.slice(s), high = D.high.slice(s), low = D.low.slice(s), close = D.close.slice(s);
+    const chg = T.chgPct.slice(s), amp = T.ampPct.slice(s);
+
+    if (chart) { chart.destroy(); chart = null; }
+    chart = new Chart($('#threeYearChart'), {
+      data: {
+        labels,
+        datasets: [
+          { type: 'bar', label: '当日最高-最低区间', data: high.map((h, i) => [low[i], h]),
+            backgroundColor: chg.map(c => c >= 0 ? 'rgba(255,107,107,0.7)' : 'rgba(78,205,196,0.7)'),
+            borderWidth: 0, barPercentage: 1.0, categoryPercentage: 1.0, order: 2 },
+          { type: 'line', label: '收盘价', data: close, borderColor: '#f6d365', borderWidth: 1.6,
+            pointRadius: 0, pointHitRadius: 6, tension: 0.15, fill: false, order: 1 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 14, maxRotation: 0 } },
+          y: { beginAtZero: false, grace: '6%', ticks: { callback: v => sym() + fmtNum(v, 0) } }
+        },
+        plugins: {
+          legend: { labels: { boxWidth: 12 } },
+          tooltip: { callbacks: {
+            title: items => items.length ? items[0].label : '',
+            label: ctx => {
+              const i = ctx.dataIndex;
+              if (ctx.dataset.type === 'line') return ' 收盘: ' + sym() + fmtNum(close[i], 2);
+              if (ctx.datasetIndex !== 0) return null;
+              const c = chg[i] >= 0 ? '+' : '';
+              return [
+                ' 开盘: ' + sym() + fmtNum(open[i], 2),
+                ' 最高: ' + sym() + fmtNum(high[i], 2),
+                ' 最低: ' + sym() + fmtNum(low[i], 2),
+                ' 收盘: ' + sym() + fmtNum(close[i], 2),
+                ' 涨跌: ' + c + chg[i].toFixed(2) + '%',
+                ' 振幅: ' + amp[i].toFixed(2) + '%'
+              ];
+            }
+          } }
+        }
+      }
+    });
+
+    // 区间统计卡片
+    const hi = Math.max(...high), lo = Math.min(...low);
+    const hiIdx = high.indexOf(hi), loIdx = low.indexOf(lo);
+    const maxA = Math.max(...amp), maxAi = amp.indexOf(maxA);
+    const avgA = amp.reduce((a, b) => a + b, 0) / amp.length;
+    const ret = (close[close.length - 1] - close[0]) / close[0] * 100;
+    $('#tyStats').innerHTML = [
+      { k: '区间最高价', v: sym() + fmtNum(hi, 0), s: labels[hiIdx] },
+      { k: '区间最低价', v: sym() + fmtNum(lo, 0), s: labels[loIdx] },
+      { k: '区间涨跌幅', v: (ret >= 0 ? '+' : '') + ret.toFixed(1) + '%', s: '收盘价口径', cls: ret >= 0 ? 'up' : 'down' },
+      { k: '最大单日振幅', v: maxA.toFixed(2) + '%', s: labels[maxAi] },
+      { k: '平均单日振幅', v: avgA.toFixed(2) + '%', s: labels.length + ' 个交易日' },
+      { k: '最新收盘', v: sym() + fmtNum(close[close.length - 1], 0), s: labels[labels.length - 1] }
+    ].map(x => '<div class="ty-stat"><div class="k">' + x.k + '</div><div class="v ' + (x.cls || '') + '">' + x.v + '</div><div class="s">' + x.s + '</div></div>').join('');
+
+    // TOP10 表格
+    const rows = labels.map((d, i) => ({ d, high: high[i], low: low[i], close: close[i], chg: chg[i], amp: amp[i] }));
+    const cellColor = v => v >= 0 ? '#ff6b6b' : '#4ecdc4';
+    const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+    function fillTable(sel, data, mainKey){
+      let h = '';
+      data.forEach(r => {
+        h += '<tr><td>' + r.d + '</td><td>' + sym() + fmtNum(r.high, 2) + '</td><td>' + sym() + fmtNum(r.low, 2) + '</td><td>' + sym() + fmtNum(r.close, 2) + '</td>';
+        if (mainKey === 'amp') h += '<td style="color:#f6d365;font-weight:700">' + r.amp.toFixed(2) + '%</td><td style="color:' + cellColor(r.chg) + '">' + fmtPct(r.chg) + '</td>';
+        else h += '<td style="color:' + cellColor(r.chg) + ';font-weight:700">' + fmtPct(r.chg) + '</td><td>' + r.amp.toFixed(2) + '%</td>';
+        h += '</tr>';
+      });
+      $(sel + ' tbody').innerHTML = h;
+    }
+    fillTable('#tyAmpTable', rows.slice().sort((a, b) => b.amp - a.amp).slice(0, 10), 'amp');
+    fillTable('#tyChgTable', rows.slice().sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 10), 'chg');
+  }
+
+  function bindBtn(id, fn){
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', fn);
+  }
+  bindBtn('tyBtnUsd', function(){ cur = 'usd'; $('#tyBtnUsd').classList.add('active'); $('#tyBtnRmb').classList.remove('active'); render(); });
+  bindBtn('tyBtnRmb', function(){ cur = 'rmb'; $('#tyBtnRmb').classList.add('active'); $('#tyBtnUsd').classList.remove('active'); render(); });
+  ['tyWin1', 'tyWin2', 'tyWin3'].forEach(id => bindBtn(id, function(){
+    win = +document.getElementById(id).dataset.win;
+    ['tyWin1', 'tyWin2', 'tyWin3'].forEach(x => document.getElementById(x).classList.toggle('active', x === id));
+    render();
+  }));
+  render();
 });
 
 // ============================================================
