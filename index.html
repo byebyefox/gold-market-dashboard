@@ -365,6 +365,74 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
   </div>
 </div>
 
+<!-- ====== Section 8: Intraday 5-min Data (REAL) ====== -->
+<div class="section" id="sec-intraday">
+  <div class="section-title"><span class="num">8</span> 每日分时数据（真实行情）</div>
+  <div class="section-desc">上海黄金交易所 Au99.99（上海金）真实分时行情，数据来源东方财富，可在行情软件回查核验；近两周交易日为真实5分钟成交数据（含1分钟实时刷新），更早日期基于当日OHLC（开盘/最高/最低/收盘）插值生成5分钟粒度走势；全部数据基于交易所真实行情，无任何虚构。支持按月选择交易日逐日切换查看。</div>
+
+  <!-- Date selector + summary -->
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+      <label style="font-size:13px;color:#9aa0b4;font-weight:600">选择交易日：</label>
+      <select id="intradayDateSelect" style="background:#1e2a45;color:#e8e8e8;border:1px solid rgba(246,211,101,0.3);border-radius:8px;padding:8px 14px;font-size:14px;min-width:180px;cursor:pointer"></select>
+      <div style="display:flex;gap:8px">
+        <button id="btnPrevDay" style="background:rgba(246,211,101,0.12);color:#f6d365;border:1px solid rgba(246,211,101,0.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px">← 前一日</button>
+        <button id="btnNextDay" style="background:rgba(246,211,101,0.12);color:#f6d365;border:1px solid rgba(246,211,101,0.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px">后一日 →</button>
+      </div>
+      <span id="intradayLiveBadge" style="display:none;font-size:12px;color:#4cd964;font-weight:600">&#9679; 实时行情 · 每60秒刷新 <span id="intradayLiveTime" style="color:#666;font-weight:400"></span></span>
+      <span id="intradayStaticBadge" style="display:none;font-size:12px;color:#9aa0b4">&#128203; 真实历史行情（已收盘，数据固定）</span>
+    </div>
+    <!-- Day summary KPIs -->
+    <div class="kpi-grid" id="intradaySummary" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
+  </div>
+
+  <!-- Intraday chart -->
+  <div class="card mt-16">
+    <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">分时走势图 <span style="color:#ff9a76">· 上海金 Au99.99（元/克）</span> <span id="intradayChartDate" style="font-size:13px;color:#9aa0b4;font-weight:400"></span></div>
+    <div class="chart-wrap tall"><canvas id="intradayChart"></canvas></div>
+  </div>
+
+  <!-- Data table -->
+  <div class="card mt-16">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:15px;font-weight:700;color:#f6d365">分时数据明细表</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="intradayPageInfo" style="font-size:12px;color:#9aa0b4"></span>
+        <button id="btnPagePrev" style="background:rgba(255,255,255,0.06);color:#e8e8e8;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">上一页</button>
+        <button id="btnPageNext" style="background:rgba(255,255,255,0.06);color:#e8e8e8;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">下一页</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="intradayTable">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>最新价 (元/克)</th>
+            <th>涨跌</th>
+            <th>涨跌幅</th>
+            <th>区间高</th>
+            <th>区间低</th>
+            <th>成交量(手)</th>
+          </tr>
+        </thead>
+        <tbody id="intradayTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card mt-16" style="border-left:3px solid #ff9a76">
+    <div style="font-size:14px;font-weight:700;color:#ff9a76;margin-bottom:8px">数据说明</div>
+    <div style="font-size:13px;color:#b0b4c8;line-height:1.8">
+      本板块为 <strong>真实行情数据</strong>，有迹可循、可在任意行情软件（东方财富/同花顺等查询 Au99.99）回查核验：<br>
+      &bull; 近两周交易日：上海黄金交易所 Au99.99 真实 5 分钟成交数据（最新交易日日盘为 1 分钟粒度，含日内均价线），无任何算法仿真。<br>
+      &bull; 更早日期（近1年）：基于当日真实 OHLC（开盘/最高/最低/收盘）插值生成 5 分钟粒度走势曲线，OHLC 四价均为交易所真实数据，日内路径为确定性算法还原。<br>
+      &bull; 最新交易日：盘中通过东方财富行情接口每 60 秒实时刷新（1 分钟粒度），收盘后固化为真实历史数据。<br>
+      &bull; 交易时段：日盘 09:00-11:30、13:30-15:30，夜盘 20:00-次日 02:30；夜盘归属次一交易日（交易所口径）。<br>
+      &bull; 数据源：东方财富 push2his 行情接口（secid=118.AU9999）+ 金投网日线 OHLC。
+    </div>
+  </div>
+</div>
+
 <!-- ====== Real-time Gold Products Panel ====== -->
 <div class="section" id="sec-products">
   <div class="section-title"><span class="num" style="background:linear-gradient(135deg,#f6d365,#fda085)">&#9733;</span> 实时金价 · 多品种</div>
@@ -496,74 +564,6 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
   <div class="card mt-16">
     <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">风险偏好信号汇总</div>
     <div class="grid-3" id="sentimentSignals"></div>
-  </div>
-</div>
-
-<!-- ====== Section 8: Intraday 5-min Data (REAL) ====== -->
-<div class="section" id="sec-intraday">
-  <div class="section-title"><span class="num">8</span> 每日分时数据（真实行情）</div>
-  <div class="section-desc">上海黄金交易所 Au99.99（上海金）真实分时行情，数据来源东方财富，可在行情软件回查核验；近两周交易日为真实5分钟成交数据（含1分钟实时刷新），更早日期基于当日OHLC（开盘/最高/最低/收盘）插值生成5分钟粒度走势；全部数据基于交易所真实行情，无任何虚构。支持按月选择交易日逐日切换查看。</div>
-
-  <!-- Date selector + summary -->
-  <div class="card">
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-      <label style="font-size:13px;color:#9aa0b4;font-weight:600">选择交易日：</label>
-      <select id="intradayDateSelect" style="background:#1e2a45;color:#e8e8e8;border:1px solid rgba(246,211,101,0.3);border-radius:8px;padding:8px 14px;font-size:14px;min-width:180px;cursor:pointer"></select>
-      <div style="display:flex;gap:8px">
-        <button id="btnPrevDay" style="background:rgba(246,211,101,0.12);color:#f6d365;border:1px solid rgba(246,211,101,0.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px">← 前一日</button>
-        <button id="btnNextDay" style="background:rgba(246,211,101,0.12);color:#f6d365;border:1px solid rgba(246,211,101,0.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px">后一日 →</button>
-      </div>
-      <span id="intradayLiveBadge" style="display:none;font-size:12px;color:#4cd964;font-weight:600">&#9679; 实时行情 · 每60秒刷新 <span id="intradayLiveTime" style="color:#666;font-weight:400"></span></span>
-      <span id="intradayStaticBadge" style="display:none;font-size:12px;color:#9aa0b4">&#128203; 真实历史行情（已收盘，数据固定）</span>
-    </div>
-    <!-- Day summary KPIs -->
-    <div class="kpi-grid" id="intradaySummary" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
-  </div>
-
-  <!-- Intraday chart -->
-  <div class="card mt-16">
-    <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">分时走势图 <span style="color:#ff9a76">· 上海金 Au99.99（元/克）</span> <span id="intradayChartDate" style="font-size:13px;color:#9aa0b4;font-weight:400"></span></div>
-    <div class="chart-wrap tall"><canvas id="intradayChart"></canvas></div>
-  </div>
-
-  <!-- Data table -->
-  <div class="card mt-16">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:15px;font-weight:700;color:#f6d365">分时数据明细表</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span id="intradayPageInfo" style="font-size:12px;color:#9aa0b4"></span>
-        <button id="btnPagePrev" style="background:rgba(255,255,255,0.06);color:#e8e8e8;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">上一页</button>
-        <button id="btnPageNext" style="background:rgba(255,255,255,0.06);color:#e8e8e8;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">下一页</button>
-      </div>
-    </div>
-    <div style="overflow-x:auto">
-      <table class="data-table" id="intradayTable">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>最新价 (元/克)</th>
-            <th>涨跌</th>
-            <th>涨跌幅</th>
-            <th>区间高</th>
-            <th>区间低</th>
-            <th>成交量(手)</th>
-          </tr>
-        </thead>
-        <tbody id="intradayTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card mt-16" style="border-left:3px solid #ff9a76">
-    <div style="font-size:14px;font-weight:700;color:#ff9a76;margin-bottom:8px">数据说明</div>
-    <div style="font-size:13px;color:#b0b4c8;line-height:1.8">
-      本板块为 <strong>真实行情数据</strong>，有迹可循、可在任意行情软件（东方财富/同花顺等查询 Au99.99）回查核验：<br>
-      &bull; 近两周交易日：上海黄金交易所 Au99.99 真实 5 分钟成交数据（最新交易日日盘为 1 分钟粒度，含日内均价线），无任何算法仿真。<br>
-      &bull; 更早日期（近1年）：基于当日真实 OHLC（开盘/最高/最低/收盘）插值生成 5 分钟粒度走势曲线，OHLC 四价均为交易所真实数据，日内路径为确定性算法还原。<br>
-      &bull; 最新交易日：盘中通过东方财富行情接口每 60 秒实时刷新（1 分钟粒度），收盘后固化为真实历史数据。<br>
-      &bull; 交易时段：日盘 09:00-11:30、13:30-15:30，夜盘 20:00-次日 02:30；夜盘归属次一交易日（交易所口径）。<br>
-      &bull; 数据源：东方财富 push2his 行情接口（secid=118.AU9999）+ 金投网日线 OHLC。
-    </div>
   </div>
 </div>
 
