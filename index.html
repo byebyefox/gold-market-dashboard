@@ -355,11 +355,11 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
   </div>
   <div class="grid-2" style="margin-top:16px">
     <div class="card">
-      <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">单日振幅 TOP 10（当前区间）</div>
+      <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">单日振幅 TOP 30（当前区间）</div>
       <div style="overflow-x:auto"><table class="data-table" id="tyAmpTable"><thead><tr><th>日期</th><th>最高</th><th>最低</th><th>收盘</th><th>振幅</th><th>涨跌</th></tr></thead><tbody></tbody></table></div>
     </div>
     <div class="card">
-      <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">单日涨跌 TOP 10（当前区间）</div>
+      <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">单日涨跌 TOP 30（当前区间）</div>
       <div style="overflow-x:auto"><table class="data-table" id="tyChgTable"><thead><tr><th>日期</th><th>最高</th><th>最低</th><th>收盘</th><th>涨跌</th><th>振幅</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
@@ -866,8 +866,8 @@ safeRun('3年波动', function build3y(){
       });
       $(sel + ' tbody').innerHTML = h;
     }
-    fillTable('#tyAmpTable', rows.slice().sort((a, b) => b.amp - a.amp).slice(0, 10), 'amp');
-    fillTable('#tyChgTable', rows.slice().sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 10), 'chg');
+    fillTable('#tyAmpTable', rows.slice().sort((a, b) => b.amp - a.amp).slice(0, 30), 'amp');
+    fillTable('#tyChgTable', rows.slice().sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 30), 'chg');
   }
 
   function bindBtn(id, fn){
