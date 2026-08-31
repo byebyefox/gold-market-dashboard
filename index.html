@@ -1131,7 +1131,7 @@ safeRun('3年波动', function build3y(){
     }
     window[name] = function(j){ finish(); cb(null, j); };
     s.onerror = function(){ finish(); cb(new Error('load error')); };
-    s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=1&cb=' + name;
+    s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=5&cb=' + name;
     document.head.appendChild(s);
   }
 
@@ -1150,20 +1150,30 @@ safeRun('3年波动', function build3y(){
     return bars;
   }
 
+  // 获取今天的北京时间日期字符串 YYYY-MM-DD
+  function getTodayDateStr(){
+    var now = new Date();
+    var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    return utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0');
+  }
+
   function parseTrends(j){
     var t = j && j.data && j.data.trends;
     if(!t || !t.length) return null;
     var bars = [];
     var nowStr = getBeijingTimeStr();
+    var todayStr = getTodayDateStr();
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
       if(p[0] > nowStr) continue;
-      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+      var barDate = p[0].slice(0, 10);
+      var barTime = p[0].slice(11, 16);
+      // 只保留今天的 bars（按自然日）
+      if(barDate !== todayStr) continue;
+      bars.push({ time: barTime, price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
-    var realIdx = [];
-    for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
-    if(!realIdx.length) return null;
-    return sortBars(bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1));
+    if(!bars.length) return null;
+    return sortBars(bars);
   }
 
   function renderSummary(bars){
@@ -2052,7 +2062,7 @@ safeRun('分时数据', function buildIntraday(){
     }
     window[name] = function(j){ finish(); cb(null, j); };
     s.onerror = function(){ finish(); cb(new Error('load error')); };
-    s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=1&cb=' + name;
+    s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=5&cb=' + name;
     document.head.appendChild(s);
   }
   // 交易时段排序权重：日盘(09:00-15:30)→夜盘(20:00+)→凌晨(00:00-02:30)
@@ -2079,16 +2089,16 @@ safeRun('分时数据', function buildIntraday(){
     var now = new Date();
     var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
     var nowStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0') + ' ' + String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
+    var todayStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0');
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
       if(p[0] > nowStr) continue; // 过滤未来时间
+      var barDate = p[0].slice(0, 10);
+      if(barDate !== todayStr) continue; // 只保留今天的 bars
       bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
-    // 切除接口在首尾填充的"零成交平盘"段，只保留首笔~末笔真实成交之间
-    var realIdx = [];
-    for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
-    if(!realIdx.length) return null;
-    return sortBars(bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1));
+    if(!bars.length) return null;
+    return sortBars(bars);
   }
 
   // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构
