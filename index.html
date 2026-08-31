@@ -1862,8 +1862,12 @@ safeRun('分时数据', function buildIntraday(){
     var t = j && j.data && j.data.trends;
     if(!t || !t.length) return null;
     var bars = [];
+    var now = new Date();
+    var nowStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
+      // 过滤未来时间的 bars（夜盘预填充数据）
+      if(p[0] > nowStr) continue;
       bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
     // 切除接口在首尾填充的"零成交平盘"段，只保留首笔~末笔真实成交之间
