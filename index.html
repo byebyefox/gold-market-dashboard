@@ -1143,7 +1143,10 @@ safeRun('3年波动', function build3y(){
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
       if(p[0] > nowStr) continue; // 过滤未来时间
-      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+      var timeStr = p[0].slice(11, 16);
+      // 只保留日盘数据（09:00~15:30），跳过夜盘
+      if(timeStr < '09:00' || timeStr > '15:30') continue;
+      bars.push({ time: timeStr, price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
     var realIdx = [];
     for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
@@ -1152,6 +1155,7 @@ safeRun('3年波动', function build3y(){
   }
 
   function renderSummary(bars){
+    // 所有 bars 都是日盘数据（09:00~15:30），首条即为开盘价
     var open = bars[0].price;
     var close = bars[bars.length - 1].price;
     var hi = -Infinity, lo = Infinity, totalVol = 0;
