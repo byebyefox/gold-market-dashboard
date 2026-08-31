@@ -1143,10 +1143,7 @@ safeRun('3年波动', function build3y(){
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
       if(p[0] > nowStr) continue; // 过滤未来时间
-      var timeStr = p[0].slice(11, 16);
-      // 只保留日盘数据（09:00~15:30），跳过夜盘
-      if(timeStr < '09:00' || timeStr > '15:30') continue;
-      bars.push({ time: timeStr, price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
     var realIdx = [];
     for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
@@ -1155,8 +1152,13 @@ safeRun('3年波动', function build3y(){
   }
 
   function renderSummary(bars){
-    // 所有 bars 都是日盘数据（09:00~15:30），首条即为开盘价
-    var open = bars[0].price;
+    // 开盘价：取日盘首条（09:00~15:30），跳过夜盘
+    var dayOpenBar = null;
+    for(var i = 0; i < bars.length; i++){
+      var t = bars[i].time;
+      if(t >= '09:00' && t <= '15:30'){ dayOpenBar = bars[i]; break; }
+    }
+    var open = dayOpenBar ? dayOpenBar.price : bars[0].price;
     var close = bars[bars.length - 1].price;
     var hi = -Infinity, lo = Infinity, totalVol = 0;
     bars.forEach(function(b){
@@ -2051,10 +2053,7 @@ safeRun('分时数据', function buildIntraday(){
       var p = t[i].split(',');
       // 过滤未来时间的 bars
       if(p[0] > nowStr) continue;
-      var timeStr = p[0].slice(11, 16);
-      // 只保留日盘数据（09:00~15:30），跳过夜盘
-      if(timeStr < '09:00' || timeStr > '15:30') continue;
-      bars.push({ time: timeStr, price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
     // 切除接口在首尾填充的"零成交平盘"段，只保留首笔~末笔真实成交之间
     var realIdx = [];
@@ -2071,18 +2070,17 @@ safeRun('分时数据', function buildIntraday(){
     var todayStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0');
     var nowTimeStr = String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
 
+    // b[0] 格式: "09:05"（只是时间，不是完整日期时间）
+    // day.date 格式: "2026-08-31"
+    var isToday = day.date === todayStr;
+
     return day.bars.filter(function(b){
-      // b[0] 格式: "2026-08-31 09:01"
-      var barDate = b[0].slice(0, 10);
-      var barTime = b[0].slice(11, 16);
-      // 历史日期的 bars 全部保留
-      if(barDate < todayStr) return true;
-      // 今天的 bars：只保留已发生的（时间 <= 当前北京时间）
-      if(barDate === todayStr) return barTime <= nowTimeStr;
-      // 未来日期的 bars 过滤掉
-      return false;
+      // 历史日期：全部保留
+      if(!isToday) return true;
+      // 今天：只保留已发生的（时间 <= 当前北京时间）
+      return b[0] <= nowTimeStr;
     }).map(function(b){
-      return { time: b[0].slice(11, 16), price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null };
+      return { time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null };
     });
   }
 
