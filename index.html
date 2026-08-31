@@ -1253,11 +1253,31 @@ safeRun('3年波动', function build3y(){
     });
   }
 
+  function getEarlyMorningBars(){
+    // 从前一个交易日数据中取凌晨 bars（00:00~03:59）
+    var intraday = GOLD.intraday;
+    if(!intraday || !intraday.days || intraday.days.length < 2) return [];
+    var prevDay = intraday.days[intraday.days.length - 2];
+    var result = [];
+    prevDay.bars.forEach(function(b){
+      if(b[0] >= '00:00' && b[0] < '04:00'){
+        result.push({ time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null, dt: '' });
+      }
+    });
+    return result;
+  }
+
   function update(){
     fetchTrends(function(err, data){
       if(err) return;
       var bars = parseTrends(data);
       if(!bars || !bars.length) return;
+      // 补充凌晨数据
+      var early = getEarlyMorningBars();
+      if(early.length){
+        bars = early.concat(bars);
+        bars.sort(function(a, b){ return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0); });
+      }
       renderSummary(bars);
       renderChart(bars);
       var now = new Date();
