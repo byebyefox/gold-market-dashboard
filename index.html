@@ -1135,6 +1135,21 @@ safeRun('3年波动', function build3y(){
     document.head.appendChild(s);
   }
 
+    // 交易时段排序权重：日盘(09:00-15:30)→夜盘(20:00+)→凌晨(00:00-02:30)
+  function sessionOrder(time){
+    if(time >= '09:00') return 0;
+    if(time >= '04:00') return 1;
+    return 2; // 凌晨 00:00-03:59 最后
+  }
+  function sortBars(bars){
+    bars.sort(function(a, b){
+      var sa = sessionOrder(a.time), sb = sessionOrder(b.time);
+      if(sa !== sb) return sa - sb;
+      return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
+    });
+    return bars;
+  }
+
   function parseTrends(j){
     var t = j && j.data && j.data.trends;
     if(!t || !t.length) return null;
@@ -1142,13 +1157,13 @@ safeRun('3年波动', function build3y(){
     var nowStr = getBeijingTimeStr();
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
-      if(p[0] > nowStr) continue; // 过滤未来时间
+      if(p[0] > nowStr) continue;
       bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
     var realIdx = [];
     for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
     if(!realIdx.length) return null;
-    return bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1);
+    return sortBars(bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1));
   }
 
   function renderSummary(bars){
@@ -2040,6 +2055,21 @@ safeRun('分时数据', function buildIntraday(){
     s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=1&cb=' + name;
     document.head.appendChild(s);
   }
+  // 交易时段排序权重：日盘(09:00-15:30)→夜盘(20:00+)→凌晨(00:00-02:30)
+  function sessionOrder(time){
+    if(time >= '09:00') return 0;
+    if(time >= '04:00') return 1;
+    return 2;
+  }
+  function sortBars(bars){
+    bars.sort(function(a, b){
+      var sa = sessionOrder(a.time), sb = sessionOrder(b.time);
+      if(sa !== sb) return sa - sb;
+      return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
+    });
+    return bars;
+  }
+
   // trends2 每行: "2026-08-12 09:31,价格，成交量 (分钟),均价"
   function parseTrends(j){
     var t = j && j.data && j.data.trends;
@@ -2058,7 +2088,7 @@ safeRun('分时数据', function buildIntraday(){
     var realIdx = [];
     for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
     if(!realIdx.length) return null;
-    return bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1);
+    return sortBars(bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1));
   }
 
   // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构
@@ -2071,15 +2101,22 @@ safeRun('分时数据', function buildIntraday(){
 
     var isToday = day.date === todayStr;
 
-    return day.bars.filter(function(b){
+    var result = day.bars.filter(function(b){
       var time = b[0];
       // 历史交易日：全部保留
       if(!isToday) return true;
-      // 今天：只保留已发生的（时间 <= 当前北京时间）
-      return time <= nowTimeStr;
+      // 今天：按交易时段过滤已发生的
+      // 日盘/夜盘(>=09:00 或 >=20:00)：时间 <= nowTimeStr
+      // 凌晨(<04:00)：夜盘延伸部分，夜盘已开始(>=20:00)则显示
+      if(time >= '04:00') return time <= nowTimeStr;
+      // 凌晨 bars：只有夜盘已开始才显示（即当前 >= 20:00）
+      return nowTimeStr >= '20:00';
     }).map(function(b){
       return { time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null };
     });
+
+    // 按交易时段排序：日盘 → 夜盘 → 凌晨
+    return sortBars(result);
   }
 
   // Compute day summary (真实数据汇总)
