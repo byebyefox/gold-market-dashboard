@@ -2348,6 +2348,22 @@ safeRun('分时数据', function buildIntraday(){
       showStatic();
     }
   }
+  // 从前一天数据中取凌晨 bars 并合并到当前 bars
+  function prependEarlyMorning(bars, dayIdx, dayDate){
+    if(dayIdx <= 0) return bars;
+    var prevBars = days[dayIdx - 1].bars;
+    var earlyMorning = [];
+    prevBars.forEach(function(b){
+      if(b[0] >= '00:00' && b[0] < '04:00'){
+        earlyMorning.push({ time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null, dt: dayDate + ' ' + b[0] });
+      }
+    });
+    if(!earlyMorning.length) return bars;
+    var merged = earlyMorning.concat(bars);
+    merged.sort(function(a, b){ return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0); });
+    return merged;
+  }
+
   function tryLive(day){
     fetchLiveTrends(function(err, j){
       if(err || !j){ showStatic(); return; }
@@ -2356,6 +2372,7 @@ safeRun('分时数据', function buildIntraday(){
       if(!bars || !bars.length || bars[bars.length - 1].dt.slice(0, 10) !== day.date){
         showStatic(); return;
       }
+      bars = prependEarlyMorning(bars, currentDayIdx, day.date);
       applyBars(bars, day.date, true, '1分钟');
       $('#intradayLiveBadge').style.display = 'inline';
       $('#intradayStaticBadge').style.display = 'none';
@@ -2366,6 +2383,7 @@ safeRun('分时数据', function buildIntraday(){
           if(e2 || !j2) return; // 静默重试，保留上次实时数据
           var b2 = parseTrends(j2);
           if(!b2 || !b2.length || b2[b2.length - 1].dt.slice(0, 10) !== day.date) return;
+          b2 = prependEarlyMorning(b2, currentDayIdx, day.date);
           applyBars(b2, day.date, true, '1分钟');
           $('#intradayLiveTime').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
         });
