@@ -253,8 +253,9 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
   <a href="#sec-regime">宏观判断</a>
   <a href="#sec-heatmap">板块热力图</a>
   <a href="#sec-sentiment">市场情绪</a>
-  <a href="#sec-intraday">分时数据</a>
-  <a href="#sec-timedist">时段分布</a>
+    <a href="#sec-intraday">分时数据</a>
+    <a href="#sec-today">今日实时</a>
+    <a href="#sec-timedist">时段分布</a>
   <a href="近一年国内黄金价格可视化.html" class="back-link">← 返回黄金主页</a>
 </nav>
 
@@ -431,6 +432,23 @@ html{scroll-behavior:smooth;scroll-padding-top:60px}
       &bull; 交易时段：日盘 09:00-11:30、13:30-15:30，夜盘 20:00-次日 02:30；夜盘归属次一交易日（交易所口径）。<br>
       &bull; 数据源：东方财富 push2his 行情接口（secid=118.AU9999）+ 金投网日线 OHLC。
     </div>
+  </div>
+</div>
+
+<!-- ====== Section: Today's Real-time ====== -->
+<div class="section" id="sec-today">
+  <div class="section-title"><span class="num">T</span> 今日实时行情</div>
+  <div class="section-desc">上海金 Au99.99 实时行情，数据来源东方财富，每 60 秒自动刷新；仅显示已发生的真实交易数据。</div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <span id="todayLiveBadge" style="font-size:12px;color:#4cd964;font-weight:600">&#9679; 实时行情 · 每 60 秒刷新</span>
+      <span id="todayUpdateTime" style="font-size:12px;color:#666"></span>
+    </div>
+    <div class="kpi-grid" id="todaySummary" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
+  </div>
+  <div class="card mt-16">
+    <div style="font-size:15px;font-weight:700;color:#f6d365;margin-bottom:12px">今日分时走势 <span style="color:#ff9a76">· 上海金 Au99.99（元/克）</span></div>
+    <div class="chart-wrap tall"><canvas id="todayChart"></canvas></div>
   </div>
 </div>
 
@@ -1086,6 +1104,165 @@ safeRun('3年波动', function build3y(){
   }));
   render();
 });
+
+// ============================================================
+// Today's Real-time Section
+// ============================================================
+(function initTodayRealtime(){
+  var CHART = null;
+  var REFRESH_MS = 60000;
+
+  function getBeijingTimeStr(){
+    var now = new Date();
+    var bj = new Date(now.getTime() + 8 * 3600000);
+    return bj.getUTCFullYear() + '-' + String(bj.getUTCMonth() + 1).padStart(2, '0') + '-' + String(bj.getUTCDate()).padStart(2, '0') + ' ' + String(bj.getUTCHours()).padStart(2, '0') + ':' + String(bj.getUTCMinutes()).padStart(2, '0');
+  }
+
+  function fetchTrends(cb){
+    var name = '__todayCb' + Date.now();
+    var s = document.createElement('script');
+    var done = false;
+    var timer = setTimeout(function(){ finish(); cb(new Error('timeout')); }, 8000);
+    function finish(){
+      if(done) return; done = true;
+      clearTimeout(timer);
+      try{ delete window[name]; }catch(e){ window[name] = undefined; }
+      if(s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[name] = function(j){ finish(); cb(null, j); };
+    s.onerror = function(){ finish(); cb(new Error('load error')); };
+    s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=1&cb=' + name;
+    document.head.appendChild(s);
+  }
+
+  function parseTrends(j){
+    var t = j && j.data && j.data.trends;
+    if(!t || !t.length) return null;
+    var bars = [];
+    var nowStr = getBeijingTimeStr();
+    for(var i = 0; i < t.length; i++){
+      var p = t[i].split(',');
+      if(p[0] > nowStr) continue; // 过滤未来时间
+      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+    }
+    var realIdx = [];
+    for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
+    if(!realIdx.length) return null;
+    return bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1);
+  }
+
+  function renderSummary(bars){
+    var open = bars[0].price;
+    var close = bars[bars.length - 1].price;
+    var hi = -Infinity, lo = Infinity, totalVol = 0;
+    bars.forEach(function(b){
+      if(b.high > hi) hi = b.high;
+      if(b.low < lo) lo = b.low;
+      totalVol += b.vol;
+    });
+    var prevClose = 995.05; // 前日收盘价
+    var chg = close - prevClose;
+    var chgPct = (chg / prevClose * 100);
+    var cls = chg >= 0 ? 'up' : 'down';
+    var items = [
+      { name: '开盘', val: '¥' + open.toFixed(2), sub: '前收 ¥' + prevClose.toFixed(2) },
+      { name: '最新', val: '¥' + close.toFixed(2), sub: '元/克' },
+      { name: '最高', val: '¥' + hi.toFixed(2), sub: '元/克' },
+      { name: '最低', val: '¥' + lo.toFixed(2), sub: '元/克' },
+      { name: '涨跌', val: (chg >= 0 ? '+' : '') + chg.toFixed(2), cls: cls, sub: '元/克' },
+      { name: '涨跌幅', val: (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%', cls: cls },
+      { name: '成交量', val: totalVol.toLocaleString() + '手' }
+    ];
+    var html = items.map(function(it){
+      return '<div class="kpi"><div class="kpi-name">' + it.name + '</div><div class="kpi-value ' + (it.cls || '') + '">' + it.val + '</div><div class="kpi-sub">' + (it.sub || '') + '</div></div>';
+    }).join('');
+    $('#todaySummary').innerHTML = html;
+  }
+
+  function renderChart(bars){
+    var labels = bars.map(function(b){ return b.time; });
+    var prices = bars.map(function(b){ return b.price; });
+    var vols = bars.map(function(b){ return b.vol; });
+    var avgPrices = bars.map(function(b){ return b.avg; });
+
+    if(CHART){ CHART.destroy(); CHART = null; }
+
+    CHART = new Chart($('#todayChart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Au99.99 价格 (元/克)',
+            data: prices,
+            borderColor: '#f6d365',
+            backgroundColor: 'rgba(246,211,101,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1,
+            fill: true,
+            yAxisID: 'y'
+          },
+          {
+            label: '日内均价',
+            data: avgPrices,
+            borderColor: '#ff9a76',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1,
+            borderDash: [4, 2],
+            yAxisID: 'y'
+          },
+          {
+            label: '成交量 (手)',
+            data: vols,
+            backgroundColor: vols.map(function(v, i){ return prices[i] >= (i > 0 ? prices[i-1] : prices[i]) ? 'rgba(78,205,196,0.5)' : 'rgba(255,107,107,0.5)'; }),
+            type: 'bar',
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 14 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx){
+                if(ctx.datasetIndex === 0) return ' 价格：¥' + ctx.parsed.y.toFixed(2);
+                if(ctx.datasetIndex === 1) return ' 均价：¥' + ctx.parsed.y.toFixed(2);
+                return ' 成交量：' + ctx.parsed.y.toLocaleString() + '手';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 12, maxRotation: 45, autoSkip: true }, grid: { display: false } },
+          y: { position: 'left', ticks: { callback: function(v){ return '¥' + v; } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y1: { position: 'right', grid: { display: false }, ticks: { display: false } }
+        }
+      }
+    });
+  }
+
+  function update(){
+    fetchTrends(function(err, data){
+      if(err) return;
+      var bars = parseTrends(data);
+      if(!bars || !bars.length) return;
+      renderSummary(bars);
+      renderChart(bars);
+      var now = new Date();
+      var timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+      $('#todayUpdateTime').textContent = '更新于 ' + timeStr;
+    });
+  }
+
+  update();
+  setInterval(update, REFRESH_MS);
+})();
 
 // ============================================================
 // Real-time Data Updater (requires gold-server.js on localhost:8770)
