@@ -1114,7 +1114,8 @@ safeRun('3年波动', function build3y(){
 
     function getBeijingTimeStr(){
     var now = new Date();
-    var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    // UTC 毫秒 + 8小时 = 北京时间，用 getUTC* 方法读取
+    var utc8 = new Date(now.getTime() + 8 * 3600000);
     return utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0') + ' ' + String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
   }
 
@@ -1153,7 +1154,7 @@ safeRun('3年波动', function build3y(){
   // 获取今天的北京时间日期字符串 YYYY-MM-DD
   function getTodayDateStr(){
     var now = new Date();
-    var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    var utc8 = new Date(now.getTime() + 8 * 3600000);
     return utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0');
   }
 
@@ -2087,7 +2088,7 @@ safeRun('分时数据', function buildIntraday(){
     var bars = [];
     // 获取当前北京时间（兼容任意浏览器时区）
     var now = new Date();
-    var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    var utc8 = new Date(now.getTime() + 8 * 3600000);
     var nowStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0') + ' ' + String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
     var todayStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0');
     for(var i = 0; i < t.length; i++){
@@ -2105,7 +2106,7 @@ safeRun('分时数据', function buildIntraday(){
   function barsFromDay(day){
     // 获取当前北京时间（兼容任意浏览器时区）
     var now = new Date();
-    var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    var utc8 = new Date(now.getTime() + 8 * 3600000);
     var todayStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0');
     var nowTimeStr = String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
 
