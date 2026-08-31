@@ -2086,6 +2086,7 @@ safeRun('分时数据', function buildIntraday(){
 
   // Compute day summary (真实数据汇总)
   function daySummary(bars){
+    if(!bars || !bars.length) return null;
     // 开盘价：取日盘首条（09:00~15:30），跳过夜盘 bars（20:00~02:30）
     var dayOpenBar = null;
     for(var i = 0; i < bars.length; i++){
@@ -2108,6 +2109,10 @@ safeRun('分时数据', function buildIntraday(){
 
   // Render summary KPIs (单位：元/克)
   function renderSummary(s){
+    if(!s){
+      $('#intradaySummary').innerHTML = '<div style="grid-column:1/-1;color:#9aa0b4;padding:16px;text-align:center">今日尚未开盘，暂无分时数据（日盘 09:00 开始）</div>';
+      return;
+    }
     var cls = s.chg >= 0 ? 'up' : 'down';
     var items = [
       { name: '开盘', val: '¥' + s.open.toFixed(2), sub: '前收 ¥' + s.prevClose.toFixed(2) },
@@ -2132,6 +2137,11 @@ safeRun('分时数据', function buildIntraday(){
 
   // Render chart (真实分时：价格线 + 均价线 + 前收虚线 + 成交量)
   function renderChart(bars, dateLabel, isLive, granularity){
+    if(!bars || !bars.length){
+      $('#intradayChartDate').textContent = dateLabel + (isLive ? ' · 实时' : '') + ' · 暂无数据';
+      if(CHART){ CHART.data.labels = []; CHART.data.datasets.forEach(function(d){ d.data = []; }); CHART.update(); }
+      return;
+    }
     // 排序：日盘（09:00~15:30）在前，夜盘（20:00~02:30）在后
     var sorted = bars.slice().sort(function(a, b){
       var aDay = a.time >= '09:00' && a.time <= '15:30' ? 0 : 1;
@@ -2250,6 +2260,11 @@ safeRun('分时数据', function buildIntraday(){
 
   // Render table page (真实数据明细)
   function renderTable(bars){
+    if(!bars || !bars.length){
+      $('#intradayTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9aa0b4;padding:16px">今日尚未开盘，暂无分时数据</td></tr>';
+      $('#intradayPageInfo').textContent = '第 0 / 0 页（共 0 条）';
+      return;
+    }
     // 排序：日盘（09:00~15:30）在前，夜盘（20:00~02:30）在后
     var sorted = bars.slice().sort(function(a, b){
       var aDay = a.time >= '09:00' && a.time <= '15:30' ? 0 : 1;
