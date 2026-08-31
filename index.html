@@ -1857,13 +1857,15 @@ safeRun('分时数据', function buildIntraday(){
     s.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=118.AU9999&fields1=f1,f2,f3,f7,f8&fields2=f51,f53,f56,f58&iscr=0&iscca=0&ndays=1&cb=' + name;
     document.head.appendChild(s);
   }
-  // trends2 每行: "2026-08-12 09:31,价格,成交量(分钟),均价"
+  // trends2 每行: "2026-08-12 09:31,价格，成交量 (分钟),均价"
   function parseTrends(j){
     var t = j && j.data && j.data.trends;
     if(!t || !t.length) return null;
     var bars = [];
+    // 使用北京时间 (UTC+8) 进行比较
     var now = new Date();
-    var nowStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    var bjNow = new Date(now.getTime() + 8 * 3600000);
+    var nowStr = bjNow.getUTCFullYear() + '-' + String(bjNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(bjNow.getUTCDate()).padStart(2, '0') + ' ' + String(bjNow.getUTCHours()).padStart(2, '0') + ':' + String(bjNow.getUTCMinutes()).padStart(2, '0');
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
       // 过滤未来时间的 bars（夜盘预填充数据）
@@ -1877,10 +1879,12 @@ safeRun('分时数据', function buildIntraday(){
     return bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1);
   }
 
-  // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构（过滤未来时间）
+  // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构（过滤未来时间，使用北京时间）
   function barsFromDay(day){
+    // 使用北京时间 (UTC+8) 进行比较，因为 bars 的时间戳是北京时间
     var now = new Date();
-    var nowStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    var bjNow = new Date(now.getTime() + 8 * 3600000); // 转换为 UTC+8
+    var nowStr = bjNow.getUTCFullYear() + '-' + String(bjNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(bjNow.getUTCDate()).padStart(2, '0') + ' ' + String(bjNow.getUTCHours()).padStart(2, '0') + ':' + String(bjNow.getUTCMinutes()).padStart(2, '0');
     return day.bars.filter(function(b){ return b[0] <= nowStr; }).map(function(b){
       return { time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null };
     });
