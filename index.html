@@ -1877,9 +1877,11 @@ safeRun('分时数据', function buildIntraday(){
     return bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1);
   }
 
-  // 注入的真实数据 [时间,开,收,高,低,量,均价?] → 统一 bar 结构
+  // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构（过滤未来时间）
   function barsFromDay(day){
-    return day.bars.map(function(b){
+    var now = new Date();
+    var nowStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    return day.bars.filter(function(b){ return b[0] <= nowStr; }).map(function(b){
       return { time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null };
     });
   }
