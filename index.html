@@ -2092,8 +2092,9 @@ safeRun('分时数据', function buildIntraday(){
     var isToday = day.date === todayStr;
     var result = [];
 
-    // 凌晨部分（00:00~03:59）：属于前一天夜盘延伸，需从前一天数据中取
-    if(idx > 0){
+    // 仅今天：从前一天数据中补充凌晨 bars（00:00~03:59）
+    // 历史日期自带完整数据，无需重复补充
+    if(isToday && idx > 0){
       var prevDay = days[idx - 1];
       prevDay.bars.forEach(function(b){
         var time = b[0];
@@ -2103,12 +2104,15 @@ safeRun('分时数据', function buildIntraday(){
       });
     }
 
-    // 当天数据（04:00以后）
+    // 当天数据
     day.bars.forEach(function(b){
       var time = b[0];
-      if(time < '04:00') return; // 跳过凌晨部分（已从前一天取）
-      // 今天：只保留已发生的
-      if(isToday && time > nowTimeStr) return;
+      // 今天：跳过凌晨部分（已从前一天取）+ 只保留已发生的
+      if(isToday){
+        if(time < '04:00') return;
+        if(time > nowTimeStr) return;
+      }
+      // 历史日期：全部保留（包括凌晨和夜盘）
       result.push({ time: time, price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null });
     });
 
