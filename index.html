@@ -2043,15 +2043,18 @@ safeRun('分时数据', function buildIntraday(){
     var t = j && j.data && j.data.trends;
     if(!t || !t.length) return null;
     var bars = [];
-    // 使用北京时间 (UTC+8) 进行比较
+    // 获取当前北京时间（兼容任意浏览器时区）
     var now = new Date();
-    var bjNow = new Date(now.getTime() + 8 * 3600000);
-    var nowStr = bjNow.getUTCFullYear() + '-' + String(bjNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(bjNow.getUTCDate()).padStart(2, '0') + ' ' + String(bjNow.getUTCHours()).padStart(2, '0') + ':' + String(bjNow.getUTCMinutes()).padStart(2, '0');
+    var utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    var nowStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0') + ' ' + String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
-      // 过滤未来时间的 bars（夜盘预填充数据）
+      // 过滤未来时间的 bars
       if(p[0] > nowStr) continue;
-      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+      var timeStr = p[0].slice(11, 16);
+      // 只保留日盘数据（09:00~15:30），跳过夜盘
+      if(timeStr < '09:00' || timeStr > '15:30') continue;
+      bars.push({ time: timeStr, price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
     // 切除接口在首尾填充的"零成交平盘"段，只保留首笔~末笔真实成交之间
     var realIdx = [];
