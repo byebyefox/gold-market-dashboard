@@ -2051,18 +2051,18 @@ safeRun('分时数据', function buildIntraday(){
     var nowStr = utc8.getUTCFullYear() + '-' + String(utc8.getUTCMonth() + 1).padStart(2, '0') + '-' + String(utc8.getUTCDate()).padStart(2, '0') + ' ' + String(utc8.getUTCHours()).padStart(2, '0') + ':' + String(utc8.getUTCMinutes()).padStart(2, '0');
     for(var i = 0; i < t.length; i++){
       var p = t[i].split(',');
-      // 过滤未来时间的 bars
-      if(p[0] > nowStr) continue;
-      bars.push({ time: p[0].slice(11, 16), price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
+      if(p[0] > nowStr) continue; // 过滤未来时间
+      var timeStr = p[0].slice(11, 16);
+      if(timeStr < '09:00' || timeStr > '15:30') continue; // 只保留日盘
+      bars.push({ time: timeStr, price: +p[1], high: +p[1], low: +p[1], vol: +p[2], avg: +p[3] || null, dt: p[0] });
     }
-    // 切除接口在首尾填充的"零成交平盘"段，只保留首笔~末笔真实成交之间
     var realIdx = [];
     for(var k = 0; k < bars.length; k++){ if(bars[k].vol > 0) realIdx.push(k); }
     if(!realIdx.length) return null;
     return bars.slice(realIdx[0], realIdx[realIdx.length - 1] + 1);
   }
 
-  // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构（过滤未来时间）
+  // 注入的真实数据 [时间，开，收，高，低，量，均价？] → 统一 bar 结构（过滤未来时间和夜盘）
   function barsFromDay(day){
     // 获取当前北京时间（兼容任意浏览器时区）
     var now = new Date();
@@ -2075,10 +2075,13 @@ safeRun('分时数据', function buildIntraday(){
     var isToday = day.date === todayStr;
 
     return day.bars.filter(function(b){
-      // 历史日期：全部保留
-      if(!isToday) return true;
-      // 今天：只保留已发生的（时间 <= 当前北京时间）
-      return b[0] <= nowTimeStr;
+      var time = b[0];
+      // 历史日期：只保留日盘（09:00~15:30），跳过夜盘
+      if(!isToday){
+        return time >= '09:00' && time <= '15:30';
+      }
+      // 今天：只保留日盘且已发生的（09:00~15:30 且 <= 当前时间）
+      return time >= '09:00' && time <= '15:30' && time <= nowTimeStr;
     }).map(function(b){
       return { time: b[0], price: b[2], high: b[3], low: b[4], vol: b[5], avg: b.length > 6 ? b[6] : null };
     });
@@ -2139,7 +2142,7 @@ safeRun('分时数据', function buildIntraday(){
   function renderChart(bars, dateLabel, isLive, granularity){
     if(!bars || !bars.length){
       $('#intradayChartDate').textContent = dateLabel + (isLive ? ' · 实时' : '') + ' · 暂无数据';
-      if(CHART){ CHART.data.labels = []; CHART.data.datasets.forEach(function(d){ d.data = []; }); CHART.update(); }
+      if(intradayChart){ intradayChart.data.labels = []; intradayChart.data.datasets.forEach(function(d){ d.data = []; }); intradayChart.update(); }
       return;
     }
     // 排序：日盘（09:00~15:30）在前，夜盘（20:00~02:30）在后
