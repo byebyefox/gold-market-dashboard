@@ -2177,13 +2177,8 @@ safeRun('分时数据', function buildIntraday(){
       if(intradayChart){ intradayChart.data.labels = []; intradayChart.data.datasets.forEach(function(d){ d.data = []; }); intradayChart.update(); }
       return;
     }
-    // 排序：日盘（09:00~15:30）在前，夜盘（20:00~02:30）在后
-    var sorted = bars.slice().sort(function(a, b){
-      var aDay = a.time >= '09:00' && a.time <= '15:30' ? 0 : 1;
-      var bDay = b.time >= '09:00' && b.time <= '15:30' ? 0 : 1;
-      if(aDay !== bDay) return aDay - bDay;
-      return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
-    });
+    // 使用已按交易时段排好序的 bars（日盘→夜盘→凌晨）
+    var sorted = bars;
     var granLabel = granularity || (sorted.length > 10 ? '5分钟' : '日线');
     $('#intradayChartDate').textContent = dateLabel + (isLive ? ' · 实时' : '') + ' · ' + granLabel;
     var labels = sorted.map(function(b){ return b.time; });
